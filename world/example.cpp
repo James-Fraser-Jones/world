@@ -1,3 +1,9 @@
+/*
+made using following resources:
+https://learnopengl.com/
+https://lazyfoo.net/tutorials/SDL/index.php
+https://www.youtube.com/watch?v=QM4WW8hcsPU&list=PLvv0ScY6vfd-p1gSnbQhY7vMe2rng0IL0&index=1
+*/
 
 #include <iostream>
 
