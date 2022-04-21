@@ -32,10 +32,21 @@ const char* fragmentShaderSource =
     "}\n";
 
 //vertices for a triangle in 3D space (in normalized device coordinates i.e. +/- 1)
-const float vertices[] = {
+const GLfloat vertices[] = {
     -0.5f, -0.5f, 0.0f,
      0.5f, -0.5f, 0.0f,
      0.0f,  0.5f, 0.0f
+};
+
+const GLfloat rect_vertices[] = {
+     0.5f,  0.5f, 0.0f,  // top right
+     0.5f, -0.5f, 0.0f,  // bottom right
+    -0.5f, -0.5f, 0.0f,  // bottom left
+    -0.5f,  0.5f, 0.0f   // top left 
+};
+const GLuint rect_indices[] = {  // note that we start from 0!
+    0, 1, 3,   // first triangle
+    1, 2, 3    // second triangle
 };
 
 int main(int argc, char* argv[]) {
@@ -80,7 +91,7 @@ int main(int argc, char* argv[]) {
     ******************************************************/
 
     //create vertex shader
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER); //store unique shader ID
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER); //store unique shader ID
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL); //set shader source code
     glCompileShader(vertexShader); //compile shader
     int  success; //shader compilation error handling
@@ -92,8 +103,7 @@ int main(int argc, char* argv[]) {
     }
 
     //create fragment shader
-    unsigned int fragmentShader;
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
@@ -103,7 +113,7 @@ int main(int argc, char* argv[]) {
     }
 
     //create shader program (linking vertex and fragment shaders)
-    unsigned int shaderProgram = glCreateProgram(); //store unique program ID
+    GLuint shaderProgram = glCreateProgram(); //store unique program ID
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
@@ -122,18 +132,24 @@ int main(int argc, char* argv[]) {
     ******************************************************/
 
     //create vertex array object (VAO) to store all info for a set of vertices
-    unsigned int VAO;
+    GLuint VAO;
     glGenVertexArrays(1, &VAO); //get 1 vertex array object ID
     glBindVertexArray(VAO); //bind this vertex array so that VBO configuration gets added to this object
 
     //send vertex data to the gpu
-    unsigned int VBO; //array for storing unique buffer object IDs
+    GLuint VBO; //variable to store a unique vertex buffer object IDs
     glGenBuffers(1, &VBO); //get 1 buffer object ID
     glBindBuffer(GL_ARRAY_BUFFER, VBO); //bind buffer type to vertex buffer object (VBO)
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); //copy vertex data into the buffer (GL_STATIC_DRAW means used a lot but unchanging)
+    glBufferData(GL_ARRAY_BUFFER, sizeof(rect_vertices), rect_vertices, GL_STATIC_DRAW); //copy vertex data into the buffer (GL_STATIC_DRAW means used a lot but unchanging)
+
+    //make element buffer object for storing vertex indices
+    GLuint EBO; 
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rect_indices), rect_indices, GL_STATIC_DRAW);
 
     //specify how to attach vertex attributes to vertex shader (using data currently bound to GL_ARRAY_BUFFER)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
     /*
     arguments:
     at location "0" (i.e. aPos attribute in vertex shader),
@@ -146,6 +162,14 @@ int main(int argc, char* argv[]) {
 
     //enable vertex attribute aPos at location "0"
     glEnableVertexAttribArray(0);
+
+    /******************************************************
+    * misc settings
+    ******************************************************/
+
+    glClearColor(0.99f, 0.76f, 0.0f, 1.0f); //set clear color to gold
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); //set drawing mode
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     /******************************************************
     * enter rendering loop
@@ -175,13 +199,11 @@ int main(int argc, char* argv[]) {
             //}
         }
 
-        //rendering commands (here we're just clearing the screen to gold)
-        glClearColor(0.99f, 0.76f, 0.0f, 1.0f); //set screen color
-        glClear(GL_COLOR_BUFFER_BIT);
-
+        //rendering commands
+        glClear(GL_COLOR_BUFFER_BIT); //clear screen
         glUseProgram(shaderProgram); //use our set of shaders
         glBindVertexArray(VAO); //use our set of configured vertices
-        glDrawArrays(GL_TRIANGLES, 0, 3); //draw triangles (start at vertex 0, draw 3 vertices)
+        glDrawElements(GL_TRIANGLES, std::size(rect_indices), GL_UNSIGNED_INT, 0); //draw triangles (start at vertex 0, draw 3 vertices)
 
         //update window using swapchain
         SDL_GL_SwapWindow(window);
