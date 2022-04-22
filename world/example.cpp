@@ -5,38 +5,45 @@ https://lazyfoo.net/tutorials/SDL/index.php
 https://www.youtube.com/watch?v=QM4WW8hcsPU&list=PLvv0ScY6vfd-p1gSnbQhY7vMe2rng0IL0&index=1
 */
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <iostream>
+#include <fstream>
+#include <string>
 
 #include <glad/glad.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
 
+using namespace std;
+
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 
 //vertex shader code
-const char* vertexShaderSource = 
-    "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-    "}\0";
-
-const char* fragmentShaderSource =
-    "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "void main()\n"
-    "{\n"
-    "    FragColor = vec4(0.035f, 0.603f, 0.117f, 0.0f);\n"
-    "}\n";
+//const char* vertexShaderSource = 
+//    "#version 330 core\n"
+//    "in vec3 position;\n"
+//    "void main()\n"
+//    "{\n"
+//    "   gl_Position = vec4(position, 1.0);\n"
+//    "}\0";
+//
+//const char* fragmentShaderSource =
+//    "#version 330 core\n"
+//    "out vec4 outColor;\n"
+//    "void main()\n"
+//    "{\n"
+//    "    outColor = vec4(0.035f, 0.603f, 0.117f, 0.0f);\n"
+//    "}\n";
 
 const char* fragmentShaderSource2 =
     "#version 330 core\n"
-    "out vec4 FragColor;\n"
+    "out vec4 outColor;\n"
     "void main()\n"
     "{\n"
-    "    FragColor = vec4(0.764f, 0.254f, 0.254f, 0.0f);\n"
+    "    outColor = vec4(0.764f, 0.254f, 0.254f, 0.0f);\n"
     "}\n";
 
 //vertices for a triangle in 3D space (in normalized device coordinates i.e. +/- 1)
@@ -107,9 +114,18 @@ int main(int argc, char* argv[]) {
     * setup shaders and shader program
     ******************************************************/
 
+    //read shaders from files (https://stackoverflow.com/questions/2912520/read-file-contents-into-a-string-in-c)
+    ifstream vertFile("example.vert");
+    std::string vertString((istreambuf_iterator<char>(vertFile)), (istreambuf_iterator<char>()));
+    const char* vertCString = vertString.c_str();
+
+    ifstream fragFile("example.frag");
+    std::string fragString((istreambuf_iterator<char>(fragFile)), (istreambuf_iterator<char>()));
+    const char* fragCString = fragString.c_str();
+
     //create vertex shader
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER); //store unique shader ID
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL); //set shader source code
+    glShaderSource(vertexShader, 1, &vertCString, NULL); //set shader source code
     glCompileShader(vertexShader); //compile shader
     int  success; //shader compilation error handling
     char infoLog[512];
@@ -121,7 +137,7 @@ int main(int argc, char* argv[]) {
 
     //create fragment shader
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glShaderSource(fragmentShader, 1, &fragCString, NULL);
     glCompileShader(fragmentShader);
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
     if (!success) {
@@ -188,7 +204,8 @@ int main(int argc, char* argv[]) {
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rect_indices), rect_indices, GL_STATIC_DRAW);
 
     //specify how to attach vertex attributes to vertex shader (using data currently bound to GL_ARRAY_BUFFER)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+    GLint pos_index = glGetAttribLocation(shaderProgram, "in_position"); //query index of "in_position" input variable in the shader program
+    glVertexAttribPointer(pos_index, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
     /*
     arguments:
     at location "0" (i.e. aPos attribute in vertex shader),
@@ -200,7 +217,7 @@ int main(int argc, char* argv[]) {
     */
 
     //enable vertex attribute aPos at location "0"
-    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(pos_index);
 
     //////////////////////////////////////////////////////////
 
@@ -218,8 +235,9 @@ int main(int argc, char* argv[]) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO2);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(tri_indices), tri_indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-    glEnableVertexAttribArray(0);
+    GLint pos_index2 = glGetAttribLocation(shaderProgram2, "in_position"); //query index of "in_position" input variable in the shader program
+    glVertexAttribPointer(pos_index2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+    glEnableVertexAttribArray(pos_index2);
 
     /******************************************************
     * misc settings
@@ -259,6 +277,7 @@ int main(int argc, char* argv[]) {
 
         //rendering commands
         glClear(GL_COLOR_BUFFER_BIT); //clear screen
+        //////////////////////
         glUseProgram(shaderProgram); //use our set of shaders
         glBindVertexArray(VAO); //use our set of configured vertices
         glDrawElements(GL_TRIANGLES, std::size(rect_indices), GL_UNSIGNED_INT, 0); //draw triangles (start at vertex 0, draw 3 vertices)
