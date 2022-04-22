@@ -278,10 +278,21 @@ int main(int argc, char* argv[]) {
         //rendering commands
         glClear(GL_COLOR_BUFFER_BIT); //clear screen
         //////////////////////
+
+        //calculate uniform values
+        Uint32 time = SDL_GetTicks();
+        float period = 2.0f;
+        float green_val = 0.5 + sin((float)time / 500 * M_PI / period)/2; //vary green 0 to 1 over period seconds
+        GLint green_val_index = glGetUniformLocation(shaderProgram, "green_val");
+
         glUseProgram(shaderProgram); //use our set of shaders
+        glUniform1f(green_val_index, green_val); //sets uniform value (has to be called *after* use program)
+
         glBindVertexArray(VAO); //use our set of configured vertices
         glDrawElements(GL_TRIANGLES, std::size(rect_indices), GL_UNSIGNED_INT, 0); //draw triangles (start at vertex 0, draw 3 vertices)
+
         //////////////////////
+
         glUseProgram(shaderProgram2);
         glBindVertexArray(VAO2); //use our set of configured vertices
         glDrawElements(GL_TRIANGLES, std::size(tri_indices), GL_UNSIGNED_INT, 0);
