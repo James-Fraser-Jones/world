@@ -1,11 +1,9 @@
 #version 330 core
 
+in vec2 vert_color;
+uniform float blue_val;
 out vec4 out_color;
 
-uniform float green_val;
-
 void main() {
-
-    out_color = vec4(0.3f, green_val, 0.55f, 0.0f);
-
+    out_color = vec4(vert_color, blue_val, 0.0f);
 }
