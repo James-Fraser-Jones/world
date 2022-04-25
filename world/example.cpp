@@ -13,17 +13,19 @@ https://www.youtube.com/watch?v=QM4WW8hcsPU&list=PLvv0ScY6vfd-p1gSnbQhY7vMe2rng0
 #include <SDL.h>
 #include <SDL_opengl.h>
 
+#include "stb_image.h"
+
 using namespace std;
 
 const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
+const int SCREEN_HEIGHT = 640;
 
-const GLfloat rect_vertices[] = {
-    //positions           //colors (red, green)
-     0.75f,  0.75f, 0.0f, 1.0f, 1.0f,  // top right
-     0.75f, -0.75f, 0.0f, 1.0f, 0.0f,  // bottom right
-    -0.75f, -0.75f, 0.0f, 0.0f, 0.0f,  // bottom left
-    -0.75f,  0.75f, 0.0f, 0.0f, 1.0f,  // top left
+const GLfloat rect_vertices[] = { //automatic size assigned to array because square brackets are empty []
+    //positions           //colors    //texture
+     0.75f,  0.75f, 0.0f, 1.0f, 1.0f,  1.5f,  1.5f, // top right
+     0.75f, -0.75f, 0.0f, 1.0f, 0.0f,  1.5f, -0.5f, // bottom right
+    -0.75f, -0.75f, 0.0f, 0.0f, 0.0f, -0.5f, -0.5f, // bottom left
+    -0.75f,  0.75f, 0.0f, 0.0f, 1.0f, -0.5f,  1.5f, // top left
 };
 const GLuint rect_indices[] = {  // note that we start from 0!
     0, 1, 3,   // first triangle
@@ -140,12 +142,49 @@ int main(int argc, char* argv[]) {
 
     //specify how to attach vertex attributes to vertex shader (using data currently bound to GL_ARRAY_BUFFER)
     GLint pos_index = glGetAttribLocation(shaderProgram, "in_position"); //query index of "in_position" input variable in the shader program
-    glVertexAttribPointer(pos_index, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
+    glVertexAttribPointer(pos_index, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), 0);
     glEnableVertexAttribArray(pos_index); //enable vertex attribute aPos at location "0"
 
     GLint col_index = glGetAttribLocation(shaderProgram, "in_color");
-    glVertexAttribPointer(col_index, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(col_index, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(col_index);
+
+    GLint tex_index = glGetAttribLocation(shaderProgram, "in_tex_coord");
+    glVertexAttribPointer(tex_index, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(tex_index);
+
+    /******************************************************
+    * configure texture data (using stb image library https://github.com/nothings/stb)
+    ******************************************************/
+
+    //allocate and bind new texture
+    GLuint sea_texture;
+    glGenTextures(1, &sea_texture);
+    glBindTexture(GL_TEXTURE_2D, sea_texture);
+
+    //set texture wrapping setting, for 2D textures, in X(S) and Y(T) axes, to mirrored repeating
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
+    //set texture filtering (i.e. how to determine actual pixel color based on closest texture pixels)
+    //choose nearest pixel when minifying (scaling texture down)
+    //use bilinear interpolation to produce pixel color when magnifying texture (scaling it up)
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //in fact when scaling texture down, we can use mipmaps instead to achieve better results
+    //linearly interpolate between two nearest mipmaps and then linearly interpolate resulting neighbouring texels to produce pixel value
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    
+    int tex_width, tex_height, tex_channel_num;
+    stbi_uc* tex_data = stbi_load("sea_texture.jpg", &tex_width, &tex_height, &tex_channel_num, 0);
+    if (tex_data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex_width, tex_height, 0, GL_RGB, GL_UNSIGNED_BYTE, tex_data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        stbi_image_free(tex_data);
+    }
+    else {
+        cout << "Failed to load texture" << endl;
+    }
 
     /******************************************************
     * misc settings
@@ -192,14 +231,13 @@ int main(int argc, char* argv[]) {
         float period = 2.0f;
         float blue_val = 0.5 + sin((float)time / 500 * M_PI / period)/2; //vary green 0 to 1 over period seconds
         GLint blue_val_index = glGetUniformLocation(shaderProgram, "blue_val");
-        GLint shift_right_index = glGetUniformLocation(shaderProgram, "shift_right");
 
         glUseProgram(shaderProgram); //use our set of shaders
         glUniform1f(blue_val_index, blue_val); //sets uniform value (has to be called *after* use program)
-        glUniform1f(shift_right_index, 0.2);
 
+        glBindTexture(GL_TEXTURE_2D, sea_texture);
         glBindVertexArray(VAO); //use our set of configured vertices
-        glDrawElements(GL_TRIANGLES, size(rect_indices), GL_UNSIGNED_INT, 0); //draw triangles (start at vertex 0, draw 3 vertices)
+        glDrawElements(GL_TRIANGLES, size(rect_indices), GL_UNSIGNED_INT, 0); //draw triangles (using bound EBO specifically)
 
         //update window using swapchain
         SDL_GL_SwapWindow(window);
