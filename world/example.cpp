@@ -21,15 +21,15 @@ const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 640;
 
 const GLfloat rect_vertices[] = { //automatic size assigned to array because square brackets are empty []
-    //positions           //colors    //texture
+    //positions           //colors     //texture
      0.75f,  0.75f, 0.0f, 1.0f, 1.0f,  1.5f,  1.5f, // top right
      0.75f, -0.75f, 0.0f, 1.0f, 0.0f,  1.5f, -0.5f, // bottom right
     -0.75f, -0.75f, 0.0f, 0.0f, 0.0f, -0.5f, -0.5f, // bottom left
     -0.75f,  0.75f, 0.0f, 0.0f, 1.0f, -0.5f,  1.5f, // top left
 };
-const GLuint rect_indices[] = {  // note that we start from 0!
-    0, 1, 3,   // first triangle
-    1, 2, 3,   // second triangle
+const GLuint rect_indices[] = { // note that we start from 0!
+    0, 1, 3, // first triangle
+    1, 2, 3, // second triangle
 };
 
 int main(int argc, char* argv[]) {
@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
     }
 
     /******************************************************
-    * setup shaders and shader program
+    * set up shaders and shader program
     ******************************************************/
 
     //read shaders from files (https://stackoverflow.com/questions/2912520/read-file-contents-into-a-string-in-c)
@@ -157,42 +157,71 @@ int main(int argc, char* argv[]) {
     * configure texture data (using stb image library https://github.com/nothings/stb)
     ******************************************************/
 
-    //allocate and bind new texture
-    GLuint sea_texture;
-    glGenTextures(1, &sea_texture);
-    glBindTexture(GL_TEXTURE_2D, sea_texture);
+    //image reading setting
+    stbi_set_flip_vertically_on_load(true);
 
-    //set texture wrapping setting, for 2D textures, in X(S) and Y(T) axes, to mirrored repeating
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-
-    //set texture filtering (i.e. how to determine actual pixel color based on closest texture pixels)
-    //choose nearest pixel when minifying (scaling texture down)
-    //use bilinear interpolation to produce pixel color when magnifying texture (scaling it up)
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //in fact when scaling texture down, we can use mipmaps instead to achieve better results
-    //linearly interpolate between two nearest mipmaps and then linearly interpolate resulting neighbouring texels to produce pixel value
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    
+    //vars
     int tex_width, tex_height, tex_channel_num;
-    stbi_uc* tex_data = stbi_load("sea_texture.jpg", &tex_width, &tex_height, &tex_channel_num, 0);
+    stbi_uc* tex_data;
+
+    //allocate memory and get ids
+    //GLuint textures[2];
+    //glGenTextures(2, textures);
+    GLuint texture1;
+    glGenTextures(1, &texture1); //TODO: change back once issue worked out
+    GLuint texture2;
+    glGenTextures(1, &texture2);
+
+    ///////////////////////////////////
+
+    glBindTexture(GL_TEXTURE_2D, texture1); //bind first ID as current texture
+
+    //set texture settings
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT); //set texture wrapping setting, for 2D textures, in X(S) and Y(T) axes, to mirrored repeating
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); //bilinear interpolation when magnifying textures to produce pixel color
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); //trilinear interpolation (using mipmaps) when minifying textures to produce pixel color
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "sea_texture"), 0); //set uniform (sea_texture is intended to be GL_TEXTURE0 so we bind a 0)
+
+    tex_data = stbi_load("sea_texture.jpg", &tex_width, &tex_height, &tex_channel_num, 0);
+    if (tex_data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex_width, tex_height, 0, GL_RGB, GL_UNSIGNED_BYTE, tex_data); //read texture data into texture
+        glGenerateMipmap(GL_TEXTURE_2D); //automatically generate mipmaps
+        stbi_image_free(tex_data); //free image data
+    }
+    else {
+        cout << "Failed to load texture" << endl;
+    }
+
+    ///////////////////////////////////
+
+    glBindTexture(GL_TEXTURE_2D, texture2); //bind second ID as current texture
+
+    //set texture settings
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT); //set texture wrapping setting, for 2D textures, in X(S) and Y(T) axes, to mirrored repeating
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); //bilinear interpolation when magnifying textures to produce pixel color
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); //trilinear interpolation (using mipmaps) when minifying textures to produce pixel color
+    
+    glUniform1i(glGetUniformLocation(shaderProgram, "oil_texture"), 1); //set uniform
+
+    tex_data = stbi_load("oil_texture.jpg", &tex_width, &tex_height, &tex_channel_num, 0);
     if (tex_data) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex_width, tex_height, 0, GL_RGB, GL_UNSIGNED_BYTE, tex_data);
         glGenerateMipmap(GL_TEXTURE_2D);
         stbi_image_free(tex_data);
     }
     else {
-        cout << "Failed to load texture" << endl;
+        cout << "Failed to load texture 2" << endl;
     }
 
     /******************************************************
-    * misc settings
+    * setting misc settings
     ******************************************************/
 
-    glClearColor(0.5f, 0.5f, 0.5f, 1.0f); //set clear color to grey
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); //set drawing mode
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f); //set clear color to grey 
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //set drawing mode
 
     /******************************************************
     * enter rendering loop
@@ -201,46 +230,45 @@ int main(int argc, char* argv[]) {
     bool running = true;
     while (running) {
 
-        //input handling
+        //input handling:
+
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                running = false;
-            }
-            if (event.type == SDL_MOUSEMOTION) {
-                //cout << "mouse has been moved\n";
-            }
             if (event.type == SDL_KEYDOWN) {
-                //cout << "a key has been pressed\n";
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     running = false;
                 }
             }
-            //const Uint8* state = SDL_GetKeyboardState(NULL);
-            //if (state[SDL_SCANCODE_RIGHT]) {
-            //    cout << "right arrow key is pressed\n";
-            //}
         }
 
-        //rendering commands
-        glClear(GL_COLOR_BUFFER_BIT); //clear screen
-        //////////////////////
+        //rendering commands:
 
-        //calculate uniform values
-        Uint32 time = SDL_GetTicks();
+        if (SDL_GetTicks() % 2000 < 1000) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture1);
+
+            //glActiveTexture(GL_TEXTURE1);
+            //glBindTexture(GL_TEXTURE_2D, texture1);
+        }
+        else {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture2);
+
+            //glActiveTexture(GL_TEXTURE1);
+            //glBindTexture(GL_TEXTURE_2D, texture2);
+        }
+
+        glUseProgram(shaderProgram); //choose shader program to use
+        glBindVertexArray(VAO); //choose vertices to use
+
+        //calculate and set shader program's "uniform" variables
         float period = 2.0f;
-        float blue_val = 0.5 + sin((float)time / 500 * M_PI / period)/2; //vary green 0 to 1 over period seconds
-        GLint blue_val_index = glGetUniformLocation(shaderProgram, "blue_val");
+        float blue_val = 0.5f + sin((float)SDL_GetTicks() / 500.0f * M_PI / period)/2.0f; //vary green 0 to 1 over period seconds
+        glUniform1f(glGetUniformLocation(shaderProgram, "blue_val"), blue_val); //sets uniform value (has to be called *after* using shader program)
 
-        glUseProgram(shaderProgram); //use our set of shaders
-        glUniform1f(blue_val_index, blue_val); //sets uniform value (has to be called *after* use program)
-
-        glBindTexture(GL_TEXTURE_2D, sea_texture);
-        glBindVertexArray(VAO); //use our set of configured vertices
-        glDrawElements(GL_TRIANGLES, size(rect_indices), GL_UNSIGNED_INT, 0); //draw triangles (using bound EBO specifically)
-
-        //update window using swapchain
-        SDL_GL_SwapWindow(window);
+        glClear(GL_COLOR_BUFFER_BIT); //clear screen
+        glDrawElements(GL_TRIANGLES, size(rect_indices), GL_UNSIGNED_INT, 0); //render triangles to buffer (using bound EBO)
+        SDL_GL_SwapWindow(window); //update window using swapchain
     }
 
     SDL_Quit();

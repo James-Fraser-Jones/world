@@ -42,5 +42,8 @@
     <Image Include="sea_texture.jpg">
       <Filter>Source Files</Filter>
     </Image>
+    <Image Include="oil_texture.jpg">
+      <Filter>Source Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
