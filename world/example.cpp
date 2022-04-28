@@ -165,16 +165,12 @@ int main(int argc, char* argv[]) {
     stbi_uc* tex_data;
 
     //allocate memory and get ids
-    //GLuint textures[2];
-    //glGenTextures(2, textures);
-    GLuint texture1;
-    glGenTextures(1, &texture1); //TODO: change back once issue worked out
-    GLuint texture2;
-    glGenTextures(1, &texture2);
+    GLuint textures[2];
+    glGenTextures(2, textures);
 
     ///////////////////////////////////
 
-    glBindTexture(GL_TEXTURE_2D, texture1); //bind first ID as current texture
+    glBindTexture(GL_TEXTURE_2D, textures[0]); //bind first ID as current texture
 
     //set texture settings
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT); //set texture wrapping setting, for 2D textures, in X(S) and Y(T) axes, to mirrored repeating
@@ -182,9 +178,7 @@ int main(int argc, char* argv[]) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); //bilinear interpolation when magnifying textures to produce pixel color
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); //trilinear interpolation (using mipmaps) when minifying textures to produce pixel color
 
-    glUniform1i(glGetUniformLocation(shaderProgram, "sea_texture"), 0); //set uniform (sea_texture is intended to be GL_TEXTURE0 so we bind a 0)
-
-    tex_data = stbi_load("sea_texture.jpg", &tex_width, &tex_height, &tex_channel_num, 0);
+    tex_data = stbi_load("sea_texture.jpg", &tex_width, &tex_height, &tex_channel_num, 0); //read texture data from file
     if (tex_data) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex_width, tex_height, 0, GL_RGB, GL_UNSIGNED_BYTE, tex_data); //read texture data into texture
         glGenerateMipmap(GL_TEXTURE_2D); //automatically generate mipmaps
@@ -196,15 +190,13 @@ int main(int argc, char* argv[]) {
 
     ///////////////////////////////////
 
-    glBindTexture(GL_TEXTURE_2D, texture2); //bind second ID as current texture
+    glBindTexture(GL_TEXTURE_2D, textures[1]); //bind second ID as current texture
 
     //set texture settings
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT); //set texture wrapping setting, for 2D textures, in X(S) and Y(T) axes, to mirrored repeating
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); //bilinear interpolation when magnifying textures to produce pixel color
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); //trilinear interpolation (using mipmaps) when minifying textures to produce pixel color
-    
-    glUniform1i(glGetUniformLocation(shaderProgram, "oil_texture"), 1); //set uniform
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
     tex_data = stbi_load("oil_texture.jpg", &tex_width, &tex_height, &tex_channel_num, 0);
     if (tex_data) {
@@ -215,6 +207,10 @@ int main(int argc, char* argv[]) {
     else {
         cout << "Failed to load texture 2" << endl;
     }
+
+    glUseProgram(shaderProgram); //choose shader program to use (before setting texture uniforms)
+    glUniform1i(glGetUniformLocation(shaderProgram, "sea_texture"), 0); //set uniform (sea_texture is intended to be GL_TEXTURE0 so we bind a 0)
+    glUniform1i(glGetUniformLocation(shaderProgram, "oil_texture"), 1);
 
     /******************************************************
     * setting misc settings
@@ -243,20 +239,11 @@ int main(int argc, char* argv[]) {
 
         //rendering commands:
 
-        if (SDL_GetTicks() % 2000 < 1000) {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texture1);
-
-            //glActiveTexture(GL_TEXTURE1);
-            //glBindTexture(GL_TEXTURE_2D, texture1);
-        }
-        else {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texture2);
-
-            //glActiveTexture(GL_TEXTURE1);
-            //glBindTexture(GL_TEXTURE_2D, texture2);
-        }
+        //choose textures to use
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, textures[1]);
 
         glUseProgram(shaderProgram); //choose shader program to use
         glBindVertexArray(VAO); //choose vertices to use

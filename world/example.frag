@@ -18,5 +18,5 @@ void main() {
 //    vec3 mixer = grey * vec3(vert_color, blue_val);
 //    out_color = vec4(mixer, 0.0f);
 
-	out_color = texture(oil_texture, vert_tex_coord); //mix(texture(sea_texture, vert_tex_coord),  , 0.5);
+	out_color = mix(texture(sea_texture, vert_tex_coord), texture(oil_texture, vert_tex_coord), 0.5);
 }
