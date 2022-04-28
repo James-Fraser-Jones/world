@@ -155,6 +155,8 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="oil_texture.jpg" />
+    <Image Include="payday - Copy.jpg" />
+    <Image Include="payday.jpg" />
     <Image Include="sea_texture.jpg" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
