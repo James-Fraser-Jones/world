@@ -10,12 +10,18 @@ https://www.youtube.com/watch?v=QM4WW8hcsPU&list=PLvv0ScY6vfd-p1gSnbQhY7vMe2rng0
 #include <string>
 
 #include <glad/glad.h>
+
 #include <SDL.h>
 #include <SDL_opengl.h>
 
-#include "stb_image.h"
+#include <stb_image.h>
+
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
+#include <gtc/type_ptr.hpp>
 
 using namespace std;
+using namespace glm;
 
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 640;
@@ -257,6 +263,18 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        //matrix transform calculations:
+
+        float time = (float)SDL_GetTicks() / 1000; //time in seconds
+
+        glm::mat4 transform = glm::mat4(1.0f); //start with identity matrix
+        transform = translate(transform, vec3(0.5f, -0.5f, 0.0f)); //translate
+        transform = glm::rotate(transform, time, glm::vec3(0.0f, 0.0f, 1.0f)); //rotate
+
+        glm::mat4 transform2 = glm::mat4(1.0f);
+        transform2 = translate(transform2, vec3(-0.5f, 0.5f, 0.0f));
+        transform2 = glm::scale(transform2, vec3(1.0f*sin(time), 1.0f*sin(time), 1.0f));
+
         //rendering commands:
 
         //choose textures to use
@@ -269,12 +287,16 @@ int main(int argc, char* argv[]) {
         glBindVertexArray(VAO); //choose vertices to use
 
         //calculate and set shader program's "uniform" variables
-        //float period = 2.0f;
-        //float mix_val = 0.5f + sin((float)SDL_GetTicks() / 500.0f * M_PI / period)/2.0f; //vary green 0 to 1 over period seconds
         glUniform1f(glGetUniformLocation(shaderProgram, "mix_val"), mix_val); //sets uniform value (has to be called *after* using shader program)
 
         glClear(GL_COLOR_BUFFER_BIT); //clear screen
+
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "transform"), 1, GL_FALSE, glm::value_ptr(transform)); //set transformation matrix
         glDrawElements(GL_TRIANGLES, size(rect_indices), GL_UNSIGNED_INT, 0); //render triangles to buffer (using bound EBO)
+
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "transform"), 1, GL_FALSE, glm::value_ptr(transform2)); //reset transformation matrix
+        glDrawElements(GL_TRIANGLES, size(rect_indices), GL_UNSIGNED_INT, 0); //render triangles to buffer (using bound EBO)
+
         SDL_GL_SwapWindow(window); //update window using swapchain
     }
 
