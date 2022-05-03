@@ -23,8 +23,17 @@ https://www.youtube.com/watch?v=QM4WW8hcsPU&list=PLvv0ScY6vfd-p1gSnbQhY7vMe2rng0
 using namespace std;
 using namespace glm;
 
-const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 600;
+const int SCREEN_WIDTH = 1280;
+const int SCREEN_HEIGHT = 720;
+
+//lets us print vectors
+std::ostream& operator<< (std::ostream& out, const glm::vec3& vec) {
+    out << "{"
+        << vec.x << " " << vec.y << " " << vec.z
+        << "}";
+
+    return out;
+}
 
 const GLfloat cube_vertices[] = {
     -0.5f, -0.5f, -0.5f, -0.5, -0.5,
@@ -109,6 +118,12 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return -1;
     }
+
+    /******************************************************
+    * set SDL settings
+    ******************************************************/
+
+    SDL_SetRelativeMouseMode(SDL_TRUE); //keep mouse in screen
 
     /******************************************************
     * set up shaders and shader program
@@ -263,11 +278,6 @@ int main(int argc, char* argv[]) {
     * static matrix transform calculations
     ******************************************************/
 
-    //view: world space -> view space (adjust to camera)
-    glm::mat4 view = glm::mat4(1.0f);
-    // note that we're translating the scene in the reverse direction of where we want to move
-    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -5.0f));
-
     //proj: view space -> clip space (add perspective projection and normalize to NDCs)
     mat4 proj = perspective(radians(45.0f), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
 
@@ -275,7 +285,15 @@ int main(int argc, char* argv[]) {
     * enter rendering loop
     ******************************************************/
 
+    float move_speed = 0.05f;
+    float mouse_sensitivity = 0.002f;
+
+    //rendering state
+    bool running = true;
     float mix_val = 1.0f;
+
+    vec2 cam_rot = vec2();
+    vec3 cam_trans = vec3(0.0f, 0.0f, 5.0f);
     
     vec3 cube_rotations[] = {
         vec3(rand_float(), rand_float(), rand_float()),
@@ -289,26 +307,66 @@ int main(int argc, char* argv[]) {
         vec3(rand_float(), rand_float(), rand_float()),
         vec3(rand_float(), rand_float(), rand_float())
     };
-
-    bool running = true;
+    
     while (running) {
 
         //input handling:
 
         SDL_Event event;
-        while (SDL_PollEvent(&event)) {
+        while (SDL_PollEvent(&event)) { //SDL_PollEvent() implicitly calls SDL_PumpEvents(), necessary for below to work (I think)
             if (event.type == SDL_KEYDOWN) {
+                //quit
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     running = false;
                 }
-                else if (event.key.keysym.sym == SDLK_UP) {
-                    mix_val = clamp(mix_val + 0.03f, 0.0f, 1.0f);
-                }
-                else if (event.key.keysym.sym == SDLK_DOWN) {
-                    mix_val = clamp(mix_val - 0.03f, 0.0f, 1.0f);
-                }
             }
         }
+
+        //this way of doing input events doesn't lead to juttering for smooth transitions, unlike above
+        const Uint8* state = SDL_GetKeyboardState(NULL);
+
+        //control texture mix
+        if (state[SDL_SCANCODE_UP]) {
+            mix_val = clamp(mix_val + 0.005f, 0.0f, 1.0f);
+        }
+        if (state[SDL_SCANCODE_DOWN]) {
+            mix_val = clamp(mix_val - 0.005f, 0.0f, 1.0f);
+        }
+
+        //camera rotation
+        int mouse_x;
+        int mouse_y;
+        Uint32 mouse_buttons = SDL_GetRelativeMouseState(&mouse_x, &mouse_y);
+        vec2 mouse_move = vec2((float)mouse_x, (float)mouse_y) * mouse_sensitivity;
+        cam_rot += mouse_move;
+        //todo: need to clamp values between 0 and 2*PI?
+
+        //camera movement
+        vec3 frame_trans = vec3();
+        if (state[SDL_SCANCODE_W]) {
+            frame_trans.z -= 1.0f;
+        }
+        if (state[SDL_SCANCODE_S]) {
+            frame_trans.z += 1.0f;
+        }
+        if (state[SDL_SCANCODE_A]) {
+            frame_trans.x -= 1.0f;
+        }
+        if (state[SDL_SCANCODE_D]) {
+            frame_trans.x += 1.0f;
+        }
+        if (state[SDL_SCANCODE_SPACE]) {
+            frame_trans.y += 1.0f;
+        }
+        if (state[SDL_SCANCODE_LCTRL]) {
+            frame_trans.y -= 1.0f;
+        }
+
+        if (frame_trans != vec3()) {
+            frame_trans = normalize(frame_trans) * move_speed;
+        }
+        frame_trans = vec3(rotate(mat4(1.0f), -cam_rot.x, vec3(0.0f, 1.0f, 0.0f)) * vec4(frame_trans, 1.0f));
+        cam_trans += frame_trans;
 
         //rendering commands:
 
@@ -326,14 +384,21 @@ int main(int argc, char* argv[]) {
 
         //calculate and set shader program's "uniform" variables
         glUniform1f(glGetUniformLocation(shaderProgram, "mix_val"), mix_val); //sets uniform value (has to be called *after* using shader program)
+
+        //view: world space -> view space (adjust to camera)
+        mat4 view = mat4(1.0f);
+        view = rotate(view, cam_rot.y, vec3(1.0f, 0.0f, 0.0f));
+        view = rotate(view, cam_rot.x, vec3(0.0f, 1.0f, 0.0f));
+        view = translate(view, -cam_trans);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, value_ptr(view));
+
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "proj"), 1, GL_FALSE, value_ptr(proj));
 
         for (unsigned int i = 0; i < size(cube_positions); i++) {
             //model: local space -> world space (adjust to world)
             mat4 model = mat4(1.0f);
             model = translate(model, cube_positions[i]);
-            model = rotate(model, -time * (float)M_PI / 2, cube_rotations[i]);
+            model = rotate(model, -time * (float)M_PI / 2, cube_rotations[i]); // <- rotation happens before translation above
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, value_ptr(model)); //set transformation matrices
             glDrawElements(GL_TRIANGLES, size(cube_indices), GL_UNSIGNED_INT, 0); //render triangles to buffer (using bound EBO)
         }
