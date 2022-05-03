@@ -34,6 +34,13 @@ std::ostream& operator<< (std::ostream& out, const glm::vec3& vec) {
 
     return out;
 }
+std::ostream& operator<< (std::ostream& out, const glm::vec2& vec) {
+    out << "{"
+        << vec.x << " " << vec.y << " "
+        << "}";
+
+    return out;
+}
 
 const GLfloat cube_vertices[] = {
     -0.5f, -0.5f, -0.5f, -0.5, -0.5,
@@ -275,25 +282,24 @@ int main(int argc, char* argv[]) {
     glEnable(GL_DEPTH_TEST); //enable depth testing
 
     /******************************************************
-    * static matrix transform calculations
-    ******************************************************/
-
-    //proj: view space -> clip space (add perspective projection and normalize to NDCs)
-    mat4 proj = perspective(radians(45.0f), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
-
-    /******************************************************
     * enter rendering loop
     ******************************************************/
+    bool running = true;
 
-    float move_speed = 0.05f;
-    float mouse_sensitivity = 0.002f;
+    float last_time = 0.0f;
+    float time = 0.0f;
+
+    float move_speed = 5.0f;
+    float look_sensitivity = 0.2f;
+    float zoom_sensitivity = 2.0f;
 
     //rendering state
-    bool running = true;
-    float mix_val = 1.0f;
 
     vec2 cam_rot = vec2();
     vec3 cam_trans = vec3(0.0f, 0.0f, 5.0f);
+    float cam_fov = radians(45.0f);
+
+    float mix_val = 1.0f;
     
     vec3 cube_rotations[] = {
         vec3(rand_float(), rand_float(), rand_float()),
@@ -310,6 +316,11 @@ int main(int argc, char* argv[]) {
     
     while (running) {
 
+        //time calculation:
+        last_time = time;
+        time = (float)SDL_GetTicks() / 1000;
+        float delta = time - last_time;
+
         //input handling:
 
         SDL_Event event;
@@ -319,6 +330,14 @@ int main(int argc, char* argv[]) {
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     running = false;
                 }
+                if (event.key.keysym.sym == SDLK_r) {
+                    cam_rot = vec2();
+                    cam_trans = vec3(0.0f, 0.0f, 5.0f);
+                    cam_fov = radians(45.0f);
+                }
+            }
+            if (event.type == SDL_MOUSEWHEEL) { //camera zoom (fov)
+                cam_fov -= event.wheel.y * zoom_sensitivity * delta;
             }
         }
 
@@ -337,9 +356,10 @@ int main(int argc, char* argv[]) {
         int mouse_x;
         int mouse_y;
         Uint32 mouse_buttons = SDL_GetRelativeMouseState(&mouse_x, &mouse_y);
-        vec2 mouse_move = vec2((float)mouse_x, (float)mouse_y) * mouse_sensitivity;
+        vec2 mouse_move = vec2((float)mouse_x, (float)mouse_y) * look_sensitivity * delta;
         cam_rot += mouse_move;
-        //todo: need to clamp values between 0 and 2*PI?
+        cam_rot.x = fmod(cam_rot.x, 2 * M_PI);
+        cam_rot.y = clamp(cam_rot.y, -M_PI / 2, M_PI / 2);
 
         //camera movement
         vec3 frame_trans = vec3();
@@ -363,7 +383,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (frame_trans != vec3()) {
-            frame_trans = normalize(frame_trans) * move_speed;
+            frame_trans = normalize(frame_trans) * move_speed * delta;
         }
         frame_trans = vec3(rotate(mat4(1.0f), -cam_rot.x, vec3(0.0f, 1.0f, 0.0f)) * vec4(frame_trans, 1.0f));
         cam_trans += frame_trans;
@@ -371,7 +391,6 @@ int main(int argc, char* argv[]) {
         //rendering commands:
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //clear screen
-        float time = (float)SDL_GetTicks() / 1000;
 
         //choose textures to use
         glActiveTexture(GL_TEXTURE0);
@@ -392,6 +411,8 @@ int main(int argc, char* argv[]) {
         view = translate(view, -cam_trans);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, value_ptr(view));
 
+        //proj: view space -> clip space (add perspective projection and normalize to NDCs)
+        mat4 proj = perspective(cam_fov, (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "proj"), 1, GL_FALSE, value_ptr(proj));
 
         for (unsigned int i = 0; i < size(cube_positions); i++) {
