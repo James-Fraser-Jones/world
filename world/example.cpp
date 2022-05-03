@@ -290,6 +290,7 @@ int main(int argc, char* argv[]) {
     float time = 0.0f;
 
     float move_speed = 5.0f;
+    float fast_mult = 2.0f;
     float look_sensitivity = 0.2f;
     float zoom_sensitivity = 2.0f;
 
@@ -383,7 +384,12 @@ int main(int argc, char* argv[]) {
         }
 
         if (frame_trans != vec3()) {
-            frame_trans = normalize(frame_trans) * move_speed * delta;
+            if (state[SDL_SCANCODE_LSHIFT]) {
+                frame_trans = normalize(frame_trans) * move_speed * fast_mult * delta;
+            }
+            else {
+                frame_trans = normalize(frame_trans) * move_speed * delta;
+            }
         }
         frame_trans = vec3(rotate(mat4(1.0f), -cam_rot.x, vec3(0.0f, 1.0f, 0.0f)) * vec4(frame_trans, 1.0f));
         cam_trans += frame_trans;
