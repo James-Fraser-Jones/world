@@ -3,6 +3,7 @@
 in vec2 vert_tex_coord;
 
 uniform float mix_val;
+
 uniform sampler2D sea_texture;
 uniform sampler2D payday_texture;
 

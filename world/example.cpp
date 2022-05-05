@@ -8,6 +8,7 @@ https://www.youtube.com/watch?v=QM4WW8hcsPU&list=PLvv0ScY6vfd-p1gSnbQhY7vMe2rng0
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include <glad/glad.h>
 
@@ -20,74 +21,182 @@ https://www.youtube.com/watch?v=QM4WW8hcsPU&list=PLvv0ScY6vfd-p1gSnbQhY7vMe2rng0
 #include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
 
-const int SCREEN_WIDTH = 1280;
-const int SCREEN_HEIGHT = 720;
-
-//lets us print vectors
-std::ostream& operator<< (std::ostream& out, const glm::vec3& vec) {
-    out << "{" << vec.x << " " << vec.y << " " << vec.z << "}";
-    return out;
-}
-std::ostream& operator<< (std::ostream& out, const glm::vec2& vec) {
-    out << "{" << vec.x << " " << vec.y << " " << "}";
-    return out;
-}
-
-const GLfloat cube_vertices[] = {
-    -0.5f, -0.5f, -0.5f, -0.5f, -0.5f,
-     0.5f, -0.5f, -0.5f,  1.5f, -0.5f,
-    -0.5f,  0.5f, -0.5f, -0.5f,  1.5f,
-     0.5f,  0.5f, -0.5f,  1.5f,  1.5f,
-    -0.5f, -0.5f,  0.5f,  1.5f, -0.5f,
-     0.5f, -0.5f,  0.5f, -0.5f, -0.5f,
-    -0.5f,  0.5f,  0.5f,  1.5f,  1.5f,
-     0.5f,  0.5f,  0.5f, -0.5f,  1.5f
-};
-
-const GLuint cube_indices[] = {
-    0, 1, 2,  3, 2, 1, //front
-    5, 4, 7,  6, 7, 4, //back
-    4, 0, 6,  2, 6, 0, //left
-    1, 5, 3,  7, 3, 5, //right
-    2, 3, 6,  7, 6, 3, //top
-    4, 5, 0,  1, 0, 5  //bottom
-};
-
-glm::vec3 cube_positions[] = {
-    glm::vec3(0.0f,  0.0f,  0.0f),
-    glm::vec3(2.0f,  5.0f, -15.0f),
-    glm::vec3(-1.5f, -2.2f, -2.5f),
-    glm::vec3(-3.8f, -2.0f, -12.3f),
-    glm::vec3(2.4f, -0.4f, -3.5f),
-    glm::vec3(-1.7f,  3.0f, -7.5f),
-    glm::vec3(1.3f, -2.0f, -2.5f),
-    glm::vec3(1.5f,  2.0f, -2.5f),
-    glm::vec3(1.5f,  0.2f, -1.5f),
-    glm::vec3(-1.3f,  1.0f, -1.5f)
-};
-
-float clamp(float val, float low, float high) {
-    if (val < low) {
-        return low;
+namespace Utils {
+    float clamp(float val, float low, float high) {
+        if (val < low) {
+            return low;
+        }
+        else if (val > high) {
+            return high;
+        }
+        return val;
     }
-    else if (val > high) {
-        return high;
+
+    float getRandFloat() {
+        return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
     }
-    return val;
+
+    std::string readFile(std::string filename) { //read entire file (https://stackoverflow.com/questions/2912520/read-file-contents-into-a-string-in-c)
+        std::ifstream my_file(filename);
+        std::string my_string((std::istreambuf_iterator<char>(my_file)), (std::istreambuf_iterator<char>()));
+        return my_string;
+    }
+
+    std::vector<std::string> splitOn(std::string input, std::string delimiter) {
+        std::vector<std::string> chunks = {};
+        size_t len = delimiter.length();
+        size_t offset = 0;
+        size_t loc = 0;
+        while ((loc = input.find(delimiter, offset)) != std::string::npos) {
+            chunks.push_back(input.substr(offset, loc - offset));
+            offset = loc + len;
+        }
+        chunks.push_back(input.substr(offset, input.length() - offset));
+        return chunks;
+    }
+
+    template<typename T>
+    void print(T x) {
+        std::cout << x << std::endl;
+    }
 }
 
-float rand_float() {
-    return static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-}
+class Program {
+public:
+    int ScreenWidth;
+    int ScreenHeight;
+    std::string Name;
+
+    Program(int screen_width, int screen_height, std::string name) {
+        ScreenWidth = screen_width;
+        ScreenHeight = screen_height;
+        Name = name;
+    }
+
+    float getAspectRatio() {
+        return (float)ScreenWidth / (float)ScreenHeight;
+    }
+};
+
+class MeshInstance {
+public:
+    std::vector<GLfloat> VertexData;
+    std::vector<GLint> IndexData;
+
+    MeshInstance(std::string filename) {
+        VertexData = {};
+        IndexData = {};
+
+        std::string file_string = Utils::readFile(filename);
+        std::vector<std::string> split_strings = Utils::splitOn(file_string, "\n\n");
+
+        std::vector<std::string> vertex_lines = Utils::splitOn(split_strings[0], "\n");
+        std::vector<std::string> index_lines = Utils::splitOn(split_strings[1], "\n");
+
+        for (int i = 0; i < vertex_lines.size(); i++) {
+            std::vector<std::string> vertex_strings = Utils::splitOn(vertex_lines[i], ",");
+            for (int j = 0; j < vertex_strings.size(); j++) {
+                VertexData.push_back(std::stof(vertex_strings[j]));
+            }
+        }
+        for (int i = 0; i < index_lines.size(); i++) {
+            std::vector<std::string> index_strings = Utils::splitOn(index_lines[i], ",");
+            for (int j = 0; j < index_strings.size(); j++) {
+                IndexData.push_back(std::stoi(index_strings[j]));
+            }
+        }
+    }
+
+    GLsizeiptr getVertexDataSize() {
+        return sizeof(VertexData[0]) * VertexData.size();
+    }
+
+    GLsizeiptr getIndexDataSize() {
+        return sizeof(IndexData[0]) * IndexData.size();
+    }
+};
+
+class Transform {
+public:
+    glm::vec3 Translation;
+    glm::vec3 Rotation;
+    glm::vec3 Scale;
+
+    Transform() {
+        Translation = glm::vec3();
+        Rotation = glm::vec3();
+        Scale = glm::vec3(1.0f);
+    }
+
+    glm::mat4 getTransformMatrix() { //apply scale, then rotation (Y -> X -> Z), then translation
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::rotate(trans, Rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        trans = glm::rotate(trans, Rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+        trans = glm::rotate(trans, Rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        trans = glm::translate(trans, Translation);
+        trans = glm::scale(trans, Scale);
+        return trans;
+    }
+};
+
+class FPSCamera {
+    Transform Trans;
+
+public:
+    float Fov;
+    float Near;
+    float Far;
+    float Aspect;
+
+    FPSCamera(float fov, float aspect, float near, float far) {
+        Trans = Transform();
+
+        Fov = fov;
+        Aspect = aspect;
+        Near = near;
+        Far = far;
+    }
+
+    void setOrientation(glm::vec2 orientation) {
+        Trans.Rotation.x = Utils::clamp(orientation.y, -(float)M_PI / 2.0f, (float)M_PI / 2.0f);
+        Trans.Rotation.y = fmod(orientation.x, 2.0f * (float)M_PI);
+    }
+    glm::vec2 getOrientation() {
+        return glm::vec2(Trans.Rotation.y, Trans.Rotation.x);
+    }
+
+    void setTranslation(glm::vec3 translation) {
+        Trans.Translation = translation;
+    }
+    glm::vec3 getTranslation() {
+        return Trans.Translation;
+    }
+
+    void relativeMove(glm::vec3 move) {
+        //move rotated about y-axis based on Trans.Rotation.y
+        glm::vec3 rotated_move = glm::vec3(glm::rotate(glm::mat4(1.0f), -Trans.Rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(-move, 1.0f));
+        Trans.Translation += rotated_move;
+    }
+
+    glm::mat4 getViewMatrix() {
+        return Trans.getTransformMatrix();
+    }
+
+    glm::mat4 getProjectionMatrix() {
+        return glm::perspective(Fov, Aspect, Near, Far);
+    }
+};
 
 int main(int argc, char* argv[]) {
+
+    Program main_program = Program(1280, 720, "World Engine");
 
     /******************************************************
     * setup SDL and OpenGL
     ******************************************************/
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0){
-        std::cout << "SDL could not initialize! SDL_Error: " << SDL_GetError() << "\n";
+        std::cout << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
         SDL_Quit();
         return -1;
     }
@@ -97,48 +206,54 @@ int main(int argc, char* argv[]) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-    SDL_Window* window = SDL_CreateWindow("World Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+    SDL_Window* window = SDL_CreateWindow(
+        main_program.Name.c_str(), 
+        SDL_WINDOWPOS_UNDEFINED, 
+        SDL_WINDOWPOS_UNDEFINED, 
+        main_program.ScreenWidth, 
+        main_program.ScreenHeight, 
+        SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
     if (window == NULL){
-        std::cout << "Window could not be created! SDL_Error: " << SDL_GetError() << "\n";
+        std::cout << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         SDL_Quit();
         return -1;
     }
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
     if (context == NULL) {
-        std::cout << "Context could not be created! SDL_Error: " << SDL_GetError() << "\n";
+        std::cout << "Context could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         SDL_Quit();
         return -1;
     }
 
     if (gladLoadGLLoader(SDL_GL_GetProcAddress) < 0) {
-        std::cout << "Failed to initialize GLAD";
+        std::cout << "Failed to initialize GLAD" << std::endl;
         SDL_Quit();
         return -1;
     }
 
     /******************************************************
-    * set SDL settings
+    * setting misc SDL and OpenGL settings
     ******************************************************/
 
     SDL_SetRelativeMouseMode(SDL_TRUE); //keep mouse in screen
 
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f); //set clear color to grey 
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //set drawing mode
+    glEnable(GL_DEPTH_TEST); //enable z-buffer depth testing
+
     /******************************************************
     * set up shaders and shader program
     ******************************************************/
+    std::string vert_string = Utils::readFile("example.vert");
+    const char* vert_c_string = vert_string.c_str();
 
-    //read shaders from files (https://stackoverflow.com/questions/2912520/read-file-contents-into-a-string-in-c)
-    std::ifstream vertFile("example.vert");
-    std::string vertString((std::istreambuf_iterator<char>(vertFile)), (std::istreambuf_iterator<char>()));
-    const char* vertCString = vertString.c_str();
-
-    std::ifstream fragFile("example.frag");
-    std::string fragString((std::istreambuf_iterator<char>(fragFile)), (std::istreambuf_iterator<char>()));
-    const char* fragCString = fragString.c_str();
+    std::string frag_string = Utils::readFile("example.frag");
+    const char* frag_c_string = frag_string.c_str();
 
     //create vertex shader
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER); //store unique shader ID
-    glShaderSource(vertexShader, 1, &vertCString, NULL); //set shader source code
+    glShaderSource(vertexShader, 1, &vert_c_string, NULL); //set shader source code
     glCompileShader(vertexShader); //compile shader
     int  success; //shader compilation error handling
     char infoLog[512];
@@ -150,7 +265,7 @@ int main(int argc, char* argv[]) {
 
     //create fragment shader
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragCString, NULL);
+    glShaderSource(fragmentShader, 1, &frag_c_string, NULL);
     glCompileShader(fragmentShader);
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
     if (!success) {
@@ -177,6 +292,8 @@ int main(int argc, char* argv[]) {
     * configure vertex data
     ******************************************************/
 
+    MeshInstance cube = MeshInstance("cube.csv");
+
     //create vertex array object (VAO) to store all info for a set of vertices
     GLuint VAO;
     glGenVertexArrays(1, &VAO); //get 1 vertex array object ID
@@ -186,13 +303,13 @@ int main(int argc, char* argv[]) {
     GLuint VBO; //variable to store a unique vertex buffer object IDs
     glGenBuffers(1, &VBO); //get 1 buffer object ID
     glBindBuffer(GL_ARRAY_BUFFER, VBO); //bind buffer type to vertex buffer object (VBO)
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW); //copy vertex data into the buffer (GL_STATIC_DRAW means used a lot but unchanging)
+    glBufferData(GL_ARRAY_BUFFER, cube.getVertexDataSize(), cube.VertexData.data(), GL_STATIC_DRAW);
 
     //make element buffer object for storing vertex indices
     GLuint EBO; 
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, cube.getIndexDataSize(), cube.IndexData.data(), GL_STATIC_DRAW);
 
     //specify how to attach vertex attributes to vertex shader (using data currently bound to GL_ARRAY_BUFFER)
     GLint pos_index = glGetAttribLocation(shaderProgram, "in_position"); //query index of "in_position" input variable in the shader program
@@ -265,14 +382,6 @@ int main(int argc, char* argv[]) {
     glUniform1i(glGetUniformLocation(shaderProgram, "payday_texture"), 1);
 
     /******************************************************
-    * setting misc settings
-    ******************************************************/
-
-    glClearColor(0.5f, 0.5f, 0.5f, 1.0f); //set clear color to grey 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); //set drawing mode
-    glEnable(GL_DEPTH_TEST); //enable depth testing
-
-    /******************************************************
     * enter rendering loop
     ******************************************************/
     bool running = true;
@@ -285,32 +394,23 @@ int main(int argc, char* argv[]) {
     float look_sensitivity = 0.2f;
     float zoom_sensitivity = 2.0f;
 
-    //rendering state
-
-    glm::vec2 cam_rot = glm::vec2();
-    glm::vec3 cam_trans = glm::vec3(0.0f, 0.0f, 5.0f);
-    float cam_fov = glm::radians(45.0f);
+    FPSCamera cam = FPSCamera(glm::radians(45.0f), main_program.getAspectRatio(), 0.1f, 100.0f);
 
     float mix_val = 1.0f;
     
-    glm::vec3 cube_rotations[] = {
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float()),
-        glm::vec3(rand_float(), rand_float(), rand_float())
-    };
+    glm::vec3 cube_rotations[10];
+    for (int i = 0; i < 10; i++) {
+        cube_rotations[i] = glm::vec3(Utils::getRandFloat(), Utils::getRandFloat(), Utils::getRandFloat());
+    }
+    glm::vec3 cube_positions[10];
+    for (int i = 0; i < 10; i++) {
+        cube_positions[i] = glm::vec3((Utils::getRandFloat() - 0.5) * 8, (Utils::getRandFloat() - 0.5) * 8, (Utils::getRandFloat() - 0.5) * 8);
+    }
     
     while (running) {
-
         //time calculation:
         last_time = time;
-        time = (float)SDL_GetTicks() / 1000;
+        time = (float)SDL_GetTicks() / 1000.0f;
         float delta = time - last_time;
 
         //input handling:
@@ -323,13 +423,11 @@ int main(int argc, char* argv[]) {
                     running = false;
                 }
                 if (event.key.keysym.sym == SDLK_r) {
-                    cam_rot = glm::vec2();
-                    cam_trans = glm::vec3(0.0f, 0.0f, 5.0f);
-                    cam_fov = glm::radians(45.0f);
+                    cam = FPSCamera(glm::radians(45.0f), main_program.getAspectRatio(), 0.1f, 100.0f);
                 }
             }
             if (event.type == SDL_MOUSEWHEEL) { //camera zoom (fov)
-                cam_fov -= event.wheel.y * zoom_sensitivity * delta;
+                cam.Fov -= event.wheel.y * zoom_sensitivity * delta;
             }
         }
 
@@ -338,10 +436,10 @@ int main(int argc, char* argv[]) {
 
         //control texture mix
         if (state[SDL_SCANCODE_UP]) {
-            mix_val = clamp(mix_val + 0.005f, 0.0f, 1.0f);
+            mix_val = Utils::clamp(mix_val + 0.005f, 0.0f, 1.0f);
         }
         if (state[SDL_SCANCODE_DOWN]) {
-            mix_val = clamp(mix_val - 0.005f, 0.0f, 1.0f);
+            mix_val = Utils::clamp(mix_val - 0.005f, 0.0f, 1.0f);
         }
 
         //camera rotation
@@ -349,41 +447,39 @@ int main(int argc, char* argv[]) {
         int mouse_y;
         Uint32 mouse_buttons = SDL_GetRelativeMouseState(&mouse_x, &mouse_y);
         glm::vec2 mouse_move = glm::vec2((float)mouse_x, (float)mouse_y) * look_sensitivity * delta;
-        cam_rot += mouse_move;
-        cam_rot.x = fmod(cam_rot.x, 2 * M_PI);
-        cam_rot.y = clamp(cam_rot.y, -M_PI / 2, M_PI / 2);
+        cam.setOrientation(cam.getOrientation() + mouse_move);
 
         //camera movement
-        glm::vec3 frame_trans = glm::vec3();
+        glm::vec3 move = glm::vec3();
         if (state[SDL_SCANCODE_W]) {
-            frame_trans.z -= 1.0f;
+            move.z -= 1.0f;
         }
         if (state[SDL_SCANCODE_S]) {
-            frame_trans.z += 1.0f;
+            move.z += 1.0f;
         }
         if (state[SDL_SCANCODE_A]) {
-            frame_trans.x -= 1.0f;
+            move.x -= 1.0f;
         }
         if (state[SDL_SCANCODE_D]) {
-            frame_trans.x += 1.0f;
+            move.x += 1.0f;
         }
         if (state[SDL_SCANCODE_SPACE]) {
-            frame_trans.y += 1.0f;
+            move.y += 1.0f;
         }
         if (state[SDL_SCANCODE_LCTRL]) {
-            frame_trans.y -= 1.0f;
+            move.y -= 1.0f;
         }
 
-        if (frame_trans != glm::vec3()) {
+        if (move != glm::vec3()) {
             if (state[SDL_SCANCODE_LSHIFT]) {
-                frame_trans = normalize(frame_trans) * move_speed * fast_mult * delta;
+                move = normalize(move) * move_speed * fast_mult * delta;
             }
             else {
-                frame_trans = normalize(frame_trans) * move_speed * delta;
+                move = normalize(move) * move_speed * delta;
             }
         }
-        frame_trans = glm::vec3(glm::rotate(glm::mat4(1.0f), -cam_rot.x, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(frame_trans, 1.0f));
-        cam_trans += frame_trans;
+
+        cam.relativeMove(move);
 
         //rendering commands:
 
@@ -402,23 +498,20 @@ int main(int argc, char* argv[]) {
         glUniform1f(glGetUniformLocation(shaderProgram, "mix_val"), mix_val); //sets uniform value (has to be called *after* using shader program)
 
         //view: world space -> view space (adjust to camera)
-        glm::mat4 view = glm::mat4(1.0f);
-        view = glm::rotate(view, cam_rot.y, glm::vec3(1.0f, 0.0f, 0.0f));
-        view = glm::rotate(view, cam_rot.x, glm::vec3(0.0f, 1.0f, 0.0f));
-        view = translate(view, -cam_trans);
+        glm::mat4 view = cam.getViewMatrix();
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, value_ptr(view));
 
         //proj: view space -> clip space (add perspective projection and normalize to NDCs)
-        glm::mat4 proj = glm::perspective(cam_fov, (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 proj = cam.getProjectionMatrix();
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "proj"), 1, GL_FALSE, value_ptr(proj));
 
-        for (unsigned int i = 0; i < std::size(cube_positions); i++) {
+        for (int i = 0; i < std::size(cube_positions); i++) {
             //model: local space -> world space (adjust to world)
             glm::mat4 model = glm::mat4(1.0f);
-            model = translate(model, cube_positions[i]);
-            model = rotate(model, -time * (float)M_PI / 2, cube_rotations[i]); // <- rotation happens before translation above
+            model = glm::translate(model, cube_positions[i]);
+            model = glm::rotate(model, -time * (float)M_PI / 2.0f, cube_rotations[i]); // <- rotation happens before translation above
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, value_ptr(model)); //set transformation matrices
-            glDrawElements(GL_TRIANGLES, std::size(cube_indices), GL_UNSIGNED_INT, 0); //render triangles to buffer (using bound EBO)
+            glDrawElements(GL_TRIANGLES, cube.IndexData.size(), GL_UNSIGNED_INT, 0);
         }
 
         SDL_GL_SwapWindow(window); //update window using swapchain

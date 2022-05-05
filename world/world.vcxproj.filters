@@ -32,6 +32,9 @@
     <None Include="example.frag">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="cube.csv">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="payday.jpg">
